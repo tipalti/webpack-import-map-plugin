@@ -6,14 +6,15 @@ module.exports = {
         node: true
     },
     extends: [
-        'standard'
+        'standard',
+        'eslint:recommended'
     ],
     globals: {
         Atomics: 'readonly',
         SharedArrayBuffer: 'readonly'
     },
     parserOptions: {
-        ecmaVersion: 2018
+        ecmaVersion: 2019
     },
     rules: {
         indent: [2, 4],
