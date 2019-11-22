@@ -1,0 +1,52 @@
+{
+    "name": "webpack-import-map-plugin",
+    "version": "1.0.0",
+    "description": "A webpack plugin to help generate import maps for outputted entry files, based on webpack-manifest-plugin",
+    "main": "index.js",
+    "scripts": {
+        "test": "mocha -r tests/setup.js tests/**/*.spec.js"
+    },
+    "engines": {
+        "node": ">=8.1.4"
+    },
+    "dependencies": {
+        "fs-extra": "^7.0.0",
+        "lodash": ">=3.5 <5",
+        "object.entries": "^1.1.0",
+        "tapable": "^1.0.0"
+    },
+    "peerDependencies": {
+        "webpack": "2 || 3 || 4"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/zleight1/webpack-import-map-plugin.git"
+    },
+    "keywords": [
+        "webpack",
+        "import-map",
+        "importmap",
+        "plugin",
+        "single-spa",
+        "singlespa"
+    ],
+    "author": "Zachary Charles Leighton <zleight1@gmail.com>",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/zleight1/webpack-import-map-plugin/issues"
+    },
+    "homepage": "https://github.com/zleight1/webpack-import-map-plugin#readme",
+    "devDependencies": {
+        "chai": "^4.2.0",
+        "chai-as-promised": "^7.1.1",
+        "chai-sinon": "^2.8.1",
+        "eslint": "^6.6.0",
+        "eslint-config-standard": "^14.1.0",
+        "eslint-plugin-import": "^2.18.2",
+        "eslint-plugin-node": "^10.0.0",
+        "eslint-plugin-promise": "^4.2.1",
+        "eslint-plugin-standard": "^4.0.1",
+        "mocha": "^6.2.2",
+        "sinon": "^7.5.0"
+    }
+}
