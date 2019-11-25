@@ -677,13 +677,10 @@ describe('ManifestPlugin', function () {
                 }
             }, {
                 manifestOptions: {
-                    seed: [],
                     sort: function (a, b) {
+                        console.log(a);
                         // make sure one is the latest
                         return a.name === 'one.js' ? 1 : -1;
-                    },
-                    generate: function (seed, files) {
-                        return files.map(file => file.name);
                     }
                 }
             }, function (importMap, stats) {

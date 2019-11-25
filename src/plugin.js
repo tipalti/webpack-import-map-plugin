@@ -1,6 +1,5 @@
 'use strict';
 
-const entries = require('object.entries');
 const path = require('path');
 const fse = require('fs-extra');
 const _ = require('lodash');
@@ -26,7 +25,6 @@ function ImportMapPlugin (opts) {
         writeToFileEmit: false,
         filter: null,
         map: null,
-        generate: null,
         sort: null,
         serialize: function (manifest) {
             return JSON.stringify(manifest, null, 4);
@@ -75,8 +73,6 @@ ImportMapPlugin.prototype.apply = function (compiler) {
     const emit = function (compilation, compileCallback) {
         const emitCount = emitCountMap.get(outputFile) - 1;
         emitCountMap.set(outputFile, emitCount);
-
-        const seed = {};
 
         const baseUrl = (this.opts.baseUrl != null ? this.opts.baseUrl : compilation.options.output.publicPath) || ''; // fallback to public path
         const stats = compilation.getStats().toJson({
@@ -220,27 +216,10 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             files = files.sort(this.opts.sort);
         }
 
-        let manifest;
-        if (this.opts.generate) {
-            const entrypointsArray = Array.from(
-                compilation.entrypoints instanceof Map
-                // Webpack 4+
-                    ? compilation.entrypoints.entries()
-                // Webpack 3
-                    : entries(compilation.entrypoints)
-            );
-            const entrypoints = entrypointsArray.reduce(
-                (e, [name, entrypoint]) => Object.assign(e, {
-                    [name]: entrypoint.getFiles()
-                }), {}
-            );
-            manifest = this.opts.generate(seed, files, entrypoints);
-        } else {
-            manifest = files.reduce(function (manifest, file) {
-                manifest[file.name] = file.path;
-                return manifest;
-            }, seed);
-        }
+        const manifest = files.reduce(function (manifest, file) {
+            manifest[file.name] = file.path;
+            return manifest;
+        }, {});
 
         // now take the manifest and wrap it in the import-map syntax
         const importMap = {
