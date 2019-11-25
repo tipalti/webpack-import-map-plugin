@@ -78,7 +78,7 @@ ImportMapPlugin.prototype.apply = function (compiler) {
 
         const seed = {};
 
-        const baseUrl = this.opts.baseUrl != null ? this.opts.baseUrl : compilation.options.output.publicPath; // fallback to public path
+        const baseUrl = (this.opts.baseUrl != null ? this.opts.baseUrl : compilation.options.output.publicPath) || ''; // fallback to public path
         const stats = compilation.getStats().toJson({
             // Disable data generation of everything we don't use
             all: false,

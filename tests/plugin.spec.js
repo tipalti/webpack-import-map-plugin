@@ -1,18 +1,21 @@
-var path = require('path');
+'use strict';
 
-var MemoryFileSystem = require('memory-fs');
-var webpack = require('webpack');
-var _ = require('lodash');
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
-var FakeCopyWebpackPlugin = require('./helpers/copy-plugin-mock');
-var ImportMapPlugin = require('../index.js');
-var { emittedAsset, isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
+const path = require('path');
+const sinon = require('sinon');
+const expect = require('chai').expect;
+const MemoryFileSystem = require('memory-fs');
+const webpack = require('webpack');
+const _ = require('lodash');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const FakeCopyWebpackPlugin = require('./helpers/copy-plugin-mock');
+const ImportMapPlugin = require('../index.js');
+const { isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
 
-var OUTPUT_DIR = path.join(__dirname, './webpack-out');
-var manifestPath = path.join(OUTPUT_DIR, 'manifest.json');
+const OUTPUT_DIR = path.join(__dirname, './webpack-out');
+const importMapPath = path.join(OUTPUT_DIR, 'import-map.json');
 
 function webpackConfig (webpackOpts, opts) {
-    var defaults = {
+    const defaults = {
         output: {
             path: OUTPUT_DIR,
             filename: '[name].js'
@@ -28,7 +31,7 @@ function webpackConfig (webpackOpts, opts) {
 }
 
 function webpackCompile (webpackOpts, opts, cb) {
-    var config;
+    let config;
     if (Array.isArray(webpackOpts)) {
         config = webpackOpts.map(function (x) {
             return webpackConfig(x, opts);
@@ -37,22 +40,26 @@ function webpackCompile (webpackOpts, opts, cb) {
         config = webpackConfig(webpackOpts, opts);
     }
 
-    var compiler = webpack(config);
+    const compiler = webpack(config);
 
-    var fs = compiler.outputFileSystem = new MemoryFileSystem();
+    const fs = compiler.outputFileSystem = new MemoryFileSystem();
 
     compiler.run(function (err, stats) {
-        var manifestFile;
+        let manifestFile;
         try {
-            manifestFile = JSON.parse(fs.readFileSync(manifestPath).toString());
+            manifestFile = JSON.parse(fs.readFileSync(importMapPath).toString());
         } catch (e) {
             manifestFile = null;
         }
 
         if (err) {
+            console.log(err);
             throw err;
         }
-        expect(stats.hasErrors()).toBe(false);
+        if (stats.hasErrors()) {
+            console.log(stats.toJson());
+        }
+        expect(stats.hasErrors()).to.eq(false);
 
         cb(manifestFile, stats, fs);
     });
@@ -60,35 +67,39 @@ function webpackCompile (webpackOpts, opts, cb) {
 
 describe('ManifestPlugin', function () {
     it('exists', function () {
-        expect(plugin).to.exist();
+        expect(ImportMapPlugin).to.exist;
     });
 
     describe('basic behavior', function () {
-        it('outputs a manifest of one file', function (done) {
+        it('outputs an importMap of one file', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.js'
-            }, {}, function (manifest) {
-                expect(manifest).to.exist();
-                expect(manifest).to.eql({
-                    'main.js': 'main.js'
+            }, {}, function (importMap) {
+                expect(importMap).to.exist;
+                expect(importMap).to.eql({
+                    imports: {
+                        'main.js': 'main.js'
+                    }
                 });
 
                 done();
             });
         });
 
-        it('outputs a manifest of multiple files', function (done) {
+        it('outputs a importMap of multiple files', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: {
                     one: './fixtures/file.js',
                     two: './fixtures/file-two.js'
                 }
-            }, {}, function (manifest) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.js',
-                    'two.js': 'two.js'
+            }, {}, function (importMap) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.js',
+                        'two.js': 'two.js'
+                    }
                 });
 
                 done();
@@ -104,9 +115,11 @@ describe('ManifestPlugin', function () {
                 output: {
                     filename: '[name].[hash].js'
                 }
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.' + stats.hash + '.js'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.' + stats.hash + '.js'
+                    }
                 });
 
                 done();
@@ -123,17 +136,19 @@ describe('ManifestPlugin', function () {
                 output: {
                     filename: '[name].js'
                 }
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.js',
-                    'one.js.map': 'one.js.map'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.js',
+                        'one.js.map': 'one.js.map'
+                    }
                 });
 
                 done();
             });
         });
 
-        it('prefixes definitions with a base path', function (done) {
+        it('prefixes definitions with a base url', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: {
@@ -144,19 +159,23 @@ describe('ManifestPlugin', function () {
                 }
             }, {
                 manifestOptions: {
-                    basePath: '/app/'
+                    baseUrl: '/app/'
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    '/app/one.js': 'one.' + stats.hash + '.js'
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': '/app/one.' + stats.hash + '.js'
+                    }
                 });
 
                 done();
             });
         });
 
-        describe('publicPath', () => {
-            it('prefixes paths with a public path', function (done) {
+        describe('transformKeys', () => {
+            it('applies the transform keys on all the key values', function (done) {
+                const stubFunc = sinon.stub();
+                stubFunc.callsFake();
                 webpackCompile({
                     context: __dirname,
                     entry: {
@@ -166,9 +185,13 @@ describe('ManifestPlugin', function () {
                         filename: '[name].[hash].js',
                         publicPath: '/app/'
                     }
-                }, {}, function (manifest, stats) {
-                    expect(manifest).to.eql({
-                        'one.js': '/app/one.' + stats.hash + '.js'
+                }, {
+                    transformKeys: x => `zzz/${x}`
+                }, function (importMap, stats) {
+                    expect(importMap).to.eql({
+                        imports: {
+                            'zzz/one.js': '/app/one.' + stats.hash + '.js'
+                        }
                     });
 
                     done();
@@ -189,9 +212,11 @@ describe('ManifestPlugin', function () {
                     manifestOptions: {
                         publicPath: ''
                     }
-                }, function (manifest, stats) {
-                    expect(manifest).to.eql({
-                        'one.js': 'one.' + stats.hash + '.js'
+                }, function (importMap, stats) {
+                    expect(importMap).to.eql({
+                        imports: {
+                            'one.js': 'one.' + stats.hash + '.js'
+                        }
                     });
 
                     done();
@@ -213,9 +238,11 @@ describe('ManifestPlugin', function () {
                 manifestOptions: {
                     basePath: '/app/'
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    '/app/one.js': '/app/one.' + stats.hash + '.js'
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        '/app/one.js': '/app/one.' + stats.hash + '.js'
+                    }
                 });
 
                 done();
@@ -235,9 +262,11 @@ describe('ManifestPlugin', function () {
                 manifestOptions: {
                     basePath: 'https://www/example.com/'
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'https://www/example.com/one.js': 'one.js'
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'https://www/example.com/one.js': 'one.js'
+                    }
                 });
 
                 done();
@@ -254,9 +283,11 @@ describe('ManifestPlugin', function () {
                     filename: '[name].js',
                     publicPath: 'http://www/example.com/'
                 }
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'one.js': 'http://www/example.com/one.js'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'http://www/example.com/one.js'
+                    }
                 });
 
                 done();
@@ -278,10 +309,12 @@ describe('ManifestPlugin', function () {
                         test1: 'test2'
                     }
                 }
-            }, function (manifest) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.js',
-                    test1: 'test2'
+            }, function (importMap) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.js',
+                        test1: 'test2'
+                    }
                 });
 
                 done();
@@ -305,8 +338,8 @@ describe('ManifestPlugin', function () {
                         test1: 'test2'
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
                     '/app/one.js': '/app/one.' + stats.hash + '.js',
                     test1: 'test2'
                 });
@@ -330,8 +363,8 @@ describe('ManifestPlugin', function () {
                 manifestOptions: {
                     seed: {}
                 }
-            }, function (manifest) {
-                expect(manifest).to.eql({
+            }, function (importMap) {
+                expect(importMap).to.eql({
                     'one.js': 'one.js',
                     'two.js': 'two.js'
                 });
@@ -340,7 +373,7 @@ describe('ManifestPlugin', function () {
             });
         });
 
-        it('outputs a manifest of no-js file', function (done) {
+        it('outputs a importMap of no-js file', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.txt',
@@ -359,9 +392,9 @@ describe('ManifestPlugin', function () {
                         { test: /\.(txt)/, loader: 'file-loader?name=file.[ext]' }
                     ]
                 }
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.exist();
-                expect(manifest).to.eql({
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.exist;
+                expect(importMap).to.eql({
                     'main.js': 'main.js',
                     'file.txt': 'file.txt'
                 });
@@ -370,7 +403,7 @@ describe('ManifestPlugin', function () {
             });
         });
 
-        it('ensures the manifest is mapping paths to names', function (done) {
+        it('ensures the importMap is mapping paths to names', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.txt',
@@ -389,9 +422,9 @@ describe('ManifestPlugin', function () {
                         { test: /\.(txt)/, loader: 'file-loader?name=outputfile.[ext]' }
                     ]
                 }
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.exist();
-                expect(manifest).to.eql({
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.exist;
+                expect(importMap).to.eql({
                     'main.js': 'main.js',
                     'file.txt': 'outputfile.txt'
                 });
@@ -402,16 +435,16 @@ describe('ManifestPlugin', function () {
 
         // Webpack 5 doesn't include file content in stats.compilation.assets
         if (!isWebpackVersionGte(5)) {
-            it('make manifest available to other webpack plugins', function (done) {
+            it('make importMap available to other webpack plugins', function (done) {
                 webpackCompile({
                     context: __dirname,
                     entry: './fixtures/file.js'
-                }, {}, function (manifest, stats) {
-                    expect(manifest).to.eql({
+                }, {}, function (importMap, stats) {
+                    expect(importMap).to.eql({
                         'main.js': 'main.js'
                     });
 
-                    expect(JSON.parse(stats.compilation.assets['manifest.json'].source())).to.eql({
+                    expect(JSON.parse(stats.compilation.assets['importMap.json'].source())).to.eql({
                         'main.js': 'main.js'
                     });
 
@@ -427,9 +460,9 @@ describe('ManifestPlugin', function () {
                     'dir\\main': './fixtures/file.js',
                     'some\\dir\\main': './fixtures/file.js'
                 }
-            }, {}, function (manifest) {
-                expect(manifest).to.exist();
-                expect(manifest).to.eql({
+            }, {}, function (importMap) {
+                expect(importMap).to.exist;
+                expect(importMap).to.eql({
                     'dir/main.js': 'dir/main.js',
                     'some/dir/main.js': 'some/dir/main.js'
                 });
@@ -472,14 +505,14 @@ describe('ManifestPlugin', function () {
                         }]
                     },
                     plugins: [
-                        new plugin(),
+                        new ImportMapPlugin(),
                         new ExtractTextPlugin({
                             filename: '[name].css',
                             allChunks: true
                         })
                     ]
-                }, {}, function (manifest, stats) {
-                    expect(manifest).to.eql({
+                }, {}, function (importMap, stats) {
+                    expect(importMap).to.eql({
                         'wStyles.js': 'wStyles.js',
                         'wStyles.css': 'wStyles.css'
                     });
@@ -500,16 +533,16 @@ describe('ManifestPlugin', function () {
                 output: {
                     filename: '[name].[hash].js'
                 }
-            }, {}, function (manifest, stats) {
-                expect(Object.keys(manifest).length).to.eql(2);
-                expect(manifest['nameless.js']).to.eql('nameless.' + stats.hash + '.js');
+            }, {}, function (importMap, stats) {
+                expect(Object.keys(importMap).length).to.eql(2);
+                expect(importMap['nameless.js']).to.eql('nameless.' + stats.hash + '.js');
 
                 done();
             });
         });
     });
 
-    describe('set location of manifest', function () {
+    describe('set location of importMap', function () {
         describe('using relative path', function () {
             it('should use output to the correct location', function (done) {
                 webpackCompile({
@@ -517,15 +550,15 @@ describe('ManifestPlugin', function () {
                     entry: './fixtures/file.js'
                 }, {
                     manifestOptions: {
-                        fileName: 'webpack.manifest.js'
+                        fileName: 'webpack.importMap.js'
                     }
-                }, function (manifest, stats, fs) {
-                    var OUTPUT_DIR = path.join(__dirname, './webpack-out');
-                    var manifestPath = path.join(OUTPUT_DIR, 'webpack.manifest.js');
+                }, function (importMap, stats, fs) {
+                    const OUTPUT_DIR = path.join(__dirname, './webpack-out');
+                    const importMapPath = path.join(OUTPUT_DIR, 'webpack.importMap.js');
 
-                    var manifest = JSON.parse(fs.readFileSync(manifestPath).toString());
+                    const result = JSON.parse(fs.readFileSync(importMapPath).toString());
 
-                    expect(manifest).to.eql({
+                    expect(result).to.eql({
                         'main.js': 'main.js'
                     });
 
@@ -541,14 +574,14 @@ describe('ManifestPlugin', function () {
                     entry: './fixtures/file.js'
                 }, {
                     manifestOptions: {
-                        fileName: path.join(__dirname, 'webpack.manifest.js')
+                        fileName: path.join(__dirname, 'webpack.importMap.js')
                     }
-                }, function (manifest, stats, fs) {
-                    var manifestPath = path.join(__dirname, 'webpack.manifest.js');
+                }, function (importMap, stats, fs) {
+                    const importMapPath = path.join(__dirname, 'webpack.importMap.js');
 
-                    var manifest = JSON.parse(fs.readFileSync(manifestPath).toString());
+                    const result = JSON.parse(fs.readFileSync(importMapPath).toString());
 
-                    expect(manifest).to.eql({
+                    expect(result).to.eql({
                         'main.js': 'main.js'
                     });
 
@@ -574,9 +607,9 @@ describe('ManifestPlugin', function () {
                         return file.isInitial;
                     }
                 }
-            }, function (manifest, stats) {
-                expect(Object.keys(manifest).length).to.eql(1);
-                expect(manifest['nameless.js']).to.eql('nameless.' + stats.hash + '.js');
+            }, function (importMap, stats) {
+                expect(Object.keys(importMap).length).to.eql(1);
+                expect(importMap['nameless.js']).to.eql('nameless.' + stats.hash + '.js');
 
                 done();
             });
@@ -598,8 +631,8 @@ describe('ManifestPlugin', function () {
                         return file;
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
                     0: 'main.js'
                 });
 
@@ -621,8 +654,8 @@ describe('ManifestPlugin', function () {
                         return file;
                     }
                 }
-            }, function (manifest) {
-                expect(manifest).to.eql({
+            }, function (importMap) {
+                expect(importMap).to.eql({
                     'javascripts/main.js': 'javascripts/main.js'
                 });
 
@@ -653,8 +686,8 @@ describe('ManifestPlugin', function () {
                         return files.map(file => file.name);
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql(['two.js', 'one.js']);
+            }, function (importMap, stats) {
+                expect(importMap).to.eql(['two.js', 'one.js']);
 
                 done();
             });
@@ -662,7 +695,7 @@ describe('ManifestPlugin', function () {
     });
 
     describe('generate', function () {
-        it('should generate custom manifest', function (done) {
+        it('should generate custom importMap', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.js',
@@ -672,17 +705,17 @@ describe('ManifestPlugin', function () {
             }, {
                 manifestOptions: {
                     generate: function (seed, files) {
-                        return files.reduce(function (manifest, file) {
-                            manifest[file.name] = {
+                        return files.reduce(function (importMap, file) {
+                            importMap[file.name] = {
                                 file: file.path,
                                 hash: file.chunk.hash
                             };
-                            return manifest;
+                            return importMap;
                         }, seed);
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
                     'main.js': {
                         file: 'main.js',
                         hash: Array.from(stats.compilation.chunks)[0].hash
@@ -712,8 +745,8 @@ describe('ManifestPlugin', function () {
                         return seed;
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql({
+            }, function (importMap, stats) {
+                expect(importMap).to.eql({
                     key: 'value'
                 });
 
@@ -740,8 +773,8 @@ describe('ManifestPlugin', function () {
                         }));
                     }
                 }
-            }, function (manifest, stats) {
-                expect(manifest).to.eql([{
+            }, function (importMap, stats) {
+                expect(importMap).to.eql([{
                     name: 'main.js',
                     file: 'main.js'
                 }]);
@@ -751,7 +784,7 @@ describe('ManifestPlugin', function () {
         });
     });
 
-    it('should generate manifest with "entrypoints" key', done => {
+    it('should generate importMap with "entrypoints" key', done => {
         webpackCompile({
             context: __dirname,
             entry: {
@@ -762,7 +795,7 @@ describe('ManifestPlugin', function () {
             manifestOptions: {
                 generate: (seed, files, entrypoints) => {
                     const manifestFiles = files.reduce(
-                        (manifest, { name, path }) => Object.assign(manifest, {
+                        (importMap, { name, path }) => Object.assign(importMap, {
                             [name]: path
                         }),
                         seed
@@ -774,8 +807,8 @@ describe('ManifestPlugin', function () {
                 }
             }
         },
-        (manifest, stats) => {
-            expect(manifest).to.eql({
+        (importMap, stats) => {
+            expect(importMap).to.eql({
                 entrypoints: {
                     one: ['one.js'],
                     two: ['two.js']
@@ -799,12 +832,14 @@ describe('ManifestPlugin', function () {
                 },
                 plugins: [
                     new FakeCopyWebpackPlugin(),
-                    new plugin()
+                    new ImportMapPlugin()
                 ]
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.js',
-                    'third.party.js': 'third.party.js'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.js',
+                        'third.party.js': 'third.party.js'
+                    }
                 });
 
                 done();
@@ -823,14 +858,16 @@ describe('ManifestPlugin', function () {
                 },
                 plugins: [
                     new FakeCopyWebpackPlugin(),
-                    new plugin({
+                    new ImportMapPlugin({
                         basePath: '/app/'
                     })
                 ]
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    '/app/one.js': '/app/one.' + stats.hash + '.js',
-                    '/app/third.party.js': '/app/third.party.js'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        '/app/one.js': '/app/one.' + stats.hash + '.js',
+                        '/app/third.party.js': '/app/third.party.js'
+                    }
                 });
 
                 done();
@@ -848,12 +885,14 @@ describe('ManifestPlugin', function () {
                 },
                 plugins: [
                     new FakeCopyWebpackPlugin(),
-                    new plugin()
+                    new ImportMapPlugin()
                 ]
-            }, {}, function (manifest, stats) {
-                expect(manifest).to.eql({
-                    'one.js': 'one.' + stats.hash + '.js',
-                    'third.party.js': 'third.party.js'
+            }, {}, function (importMap, stats) {
+                expect(importMap).to.eql({
+                    imports: {
+                        'one.js': 'one.' + stats.hash + '.js',
+                        'third.party.js': 'third.party.js'
+                    }
                 });
 
                 done();
@@ -866,22 +905,22 @@ describe('ManifestPlugin', function () {
                 entry: './fixtures/file.js'
             }, {
                 manifestOptions: {
-                    fileName: 'webpack.manifest.yml',
-                    serialize: function (manifest) {
-                        var output = '';
-                        for (var key in manifest) {
-                            output += '- ' + key + ': "' + manifest[key] + '"\n';
+                    fileName: 'webpack.importMap.yml',
+                    serialize: function (importMap) {
+                        let output = '';
+                        for (const key in importMap) {
+                            output += '- ' + key + ': "' + importMap[key] + '"\n';
                         }
                         return output;
                     }
                 }
-            }, function (manifest, stats, fs) {
-                var OUTPUT_DIR = path.join(__dirname, './webpack-out');
-                var manifestPath = path.join(OUTPUT_DIR, 'webpack.manifest.yml');
+            }, function (importMap, stats, fs) {
+                const OUTPUT_DIR = path.join(__dirname, './webpack-out');
+                const importMapPath = path.join(OUTPUT_DIR, 'webpack.importMap.yml');
 
-                var manifest = fs.readFileSync(manifestPath).toString();
+                const result = fs.readFileSync(importMapPath).toString();
 
-                expect(manifest).to.eql('- main.js: "main.js"\n');
+                expect(result).to.eql('- main.js: "main.js"\n');
 
                 done();
             });
