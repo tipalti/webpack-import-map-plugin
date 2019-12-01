@@ -1,17 +1,12 @@
 'use strict';
 
+const entries = require('object.entries');
 const path = require('path');
 const fse = require('fs-extra');
 const _ = require('lodash');
 
 const emitCountMap = new Map();
 const compilerHookMap = new WeakMap();
-
-const standardizeFilePaths = (file) => {
-    file.name = file.name.replace(/\\/g, '/');
-    file.path = file.path.replace(/\\/g, '/');
-    return file;
-};
 
 function ImportMapPlugin (opts) {
     this.opts = _.assign({
@@ -24,6 +19,8 @@ function ImportMapPlugin (opts) {
         transformExtensions: /^(gz|map)$/i,
         writeToFileEmit: false,
         filter: null,
+        generate: null,
+        seed: null,
         map: null,
         sort: null,
         serialize: function (manifest) {
@@ -37,7 +34,7 @@ ImportMapPlugin.getCompilerHooks = (compiler) => {
     if (hooks === undefined) {
         const SyncWaterfallHook = require('tapable').SyncWaterfallHook;
         hooks = {
-            afterEmit: new SyncWaterfallHook(['manifest'])
+            afterEmit: new SyncWaterfallHook(['importmap'])
         };
         compilerHookMap.set(compiler, hooks);
     }
@@ -73,6 +70,8 @@ ImportMapPlugin.prototype.apply = function (compiler) {
     const emit = function (compilation, compileCallback) {
         const emitCount = emitCountMap.get(outputFile) - 1;
         emitCountMap.set(outputFile, emitCount);
+
+        const seed = this.opts.seed || {};
 
         const baseUrl = (this.opts.baseUrl != null ? this.opts.baseUrl : compilation.options.output.publicPath) || ''; // fallback to public path
         const stats = compilation.getStats().toJson({
@@ -203,34 +202,53 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         if (baseUrl) {
             // prepends the output with the baseUrl
             files = files.map(function (file) {
-                file.path = path.join(baseUrl, file.path);
+                const slash = (baseUrl.endsWith('/') || file.path.startsWith('/')) ? '' : '/';
+                file.path = `${baseUrl}${slash}${file.path}`;
                 return file;
             });
         }
 
         if (this.opts.map) {
-            files = files.map(this.opts.map).map(standardizeFilePaths);
+            files = files.map(this.opts.map);
         }
 
         if (this.opts.sort) {
             files = files.sort(this.opts.sort);
         }
 
-        const manifest = files.reduce(function (manifest, file) {
-            manifest[file.name] = file.path;
-            return manifest;
-        }, {});
-
-        // now take the manifest and wrap it in the import-map syntax
-        const importMap = {
-            imports: {
-                ...manifest
-            }
-            // todo scopes
-        };
+        let manifest;
+        if (this.opts.generate) {
+            const entrypointsArray = Array.from(
+                compilation.entrypoints instanceof Map
+                // Webpack 4+
+                    ? compilation.entrypoints.entries()
+                // Webpack 3
+                    : entries(compilation.entrypoints)
+            );
+            const entrypoints = entrypointsArray.reduce(
+                (e, [name, entrypoint]) => Object.assign(e, { [name]: entrypoint.getFiles() }),
+                {}
+            );
+            manifest = this.opts.generate(seed, files, entrypoints);
+        } else {
+            manifest = files.reduce(function (manifest, file) {
+                manifest[file.name] = file.path;
+                return manifest;
+            }, seed);
+        }
 
         const isLastEmit = emitCount === 0;
         if (isLastEmit) {
+            if (manifest.files) {
+                manifest = manifest.files;
+            }
+            // now take the manifest and wrap it in the import-map syntax
+            const importMap = {
+                imports: {
+                    ...manifest
+                }
+            // todo scopes
+            };
             const output = this.opts.serialize(importMap);
 
             compilation.assets[outputName] = {
@@ -248,9 +266,9 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         }
 
         if (compiler.hooks) {
-            ImportMapPlugin.getCompilerHooks(compiler).afterEmit.call(importMap);
+            ImportMapPlugin.getCompilerHooks(compiler).afterEmit.call(manifest);
         } else {
-            compilation.applyPluginsAsync('webpack-import-map-plugin-after-emit', importMap, compileCallback);
+            compilation.applyPluginsAsync('webpack-import-map-plugin-after-emit', manifest, compileCallback);
         }
     }.bind(this);
 

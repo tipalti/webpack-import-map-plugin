@@ -1,3 +1,3 @@
-require.ensure(['./file'], function() {
-  require('./file');
+require.ensure(['./file'], function () {
+    require('./file');
 });
