@@ -5,6 +5,12 @@ const path = require('path');
 const fse = require('fs-extra');
 const _ = require('lodash');
 
+const standardizeFilePaths = (file) => {
+    file.name = file.name.replace(/\\/g, '/');
+    file.path = file.path.replace(/\\/g, '/');
+    return file;
+};
+
 const emitCountMap = new Map();
 const compilerHookMap = new WeakMap();
 
@@ -208,6 +214,8 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             });
         }
 
+        files = files.map(standardizeFilePaths);
+
         if (this.opts.map) {
             files = files.map(this.opts.map);
         }
@@ -237,18 +245,17 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             }, seed);
         }
 
+        if (manifest.files) {
+            manifest = manifest.files;
+        }
+        // now take the manifest and wrap it in the import-map syntax
+        const importMap = {
+            imports: {
+                ...manifest
+            }
+        };
         const isLastEmit = emitCount === 0;
         if (isLastEmit) {
-            if (manifest.files) {
-                manifest = manifest.files;
-            }
-            // now take the manifest and wrap it in the import-map syntax
-            const importMap = {
-                imports: {
-                    ...manifest
-                }
-            // todo scopes
-            };
             const output = this.opts.serialize(importMap);
 
             compilation.assets[outputName] = {
@@ -266,9 +273,9 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         }
 
         if (compiler.hooks) {
-            ImportMapPlugin.getCompilerHooks(compiler).afterEmit.call(manifest);
+            ImportMapPlugin.getCompilerHooks(compiler).afterEmit.call(importMap);
         } else {
-            compilation.applyPluginsAsync('webpack-import-map-plugin-after-emit', manifest, compileCallback);
+            compilation.applyPluginsAsync('webpack-import-map-plugin-after-emit', importMap, compileCallback);
         }
     }.bind(this);
 

@@ -186,7 +186,9 @@ describe('ManifestPlugin', function () {
                         publicPath: '/app/'
                     }
                 }, {
-                    transformKeys: x => `zzz/${x}`
+                    importMapOptions: {
+                        transformKeys: x => `zzz/${x}`
+                    }
                 }, function (importMap, stats) {
                     expect(importMap).to.eql({
                         imports: {
@@ -583,7 +585,7 @@ describe('ManifestPlugin', function () {
             });
         });
 
-        it('should add subfolders', function (done) {
+        it('should allow file name changes', function (done) {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.js',
@@ -593,14 +595,14 @@ describe('ManifestPlugin', function () {
             }, {
                 importMapOptions: {
                     map: function (file) {
-                        file.name = path.join(path.dirname(file.path), file.name);
+                        file.name = path.join('foo/', file.name);
                         return file;
                     }
                 }
             }, function (importMap) {
                 expect(importMap).to.eql({
                     imports: {
-                        'main.js': 'javascripts/main.js'
+                        'foo/main.js': 'javascripts/main.js'
                     }
                 });
 
@@ -636,36 +638,6 @@ describe('ManifestPlugin', function () {
     });
 
     describe('generate', function () {
-        it('should generate custom importMap', function (done) {
-            webpackCompile({
-                context: __dirname,
-                entry: './fixtures/file.js',
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
-                    generate: function (seed, files) {
-                        return files.reduce(function (importMap, file) {
-                            importMap[file.name] = {
-                                file: file.path,
-                                hash: file.chunk.hash
-                            };
-                            return importMap;
-                        }, seed);
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(importMap).to.eql({
-                    imports: {
-                        'main.js': 'main.js'
-                    }
-                });
-
-                done();
-            });
-        });
-
         it('should default to `seed`', function (done) {
             webpackCompile({
                 context: __dirname,
