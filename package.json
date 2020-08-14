@@ -1,6 +1,6 @@
 {
     "name": "webpack-import-map-plugin",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "A webpack plugin to help generate import maps for outputted entry files, based on webpack-manifest-plugin",
     "main": "index.js",
     "scripts": {
