@@ -8,10 +8,15 @@
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
 [![Contributors][contributors-shield]][contributors-url]
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat-square)](https://github.com/zleight1/webpack-import-map-plugin/issues)
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-![npm](https://img.shields.io/npm/v/webpack-import-map-plugin?style=flat-square)
+[![HitCount](http://hits.dwyl.com/zleight/webpack-import-map-plugin.svg)](http://hits.dwyl.com/zleight/webpack-import-map-plugin)
+[![Known Vulnerabilities](https://snyk.io/test/github/dwyl/hapi-auth-jwt2/badge.svg?targetFile=package.json&style=flat-square)](https://snyk.io/test/github/dwyl/hapi-auth-jwt2?targetFile=package.json)
+
+  
+[![https://nodei.co/npm/webpack-import-map-plugin.png?downloads=true&downloadRank=true&stars=true](https://nodei.co/npm/webpack-import-map-plugin.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/webpack-import-map-plugin)
 
 
 <!-- PROJECT LOGO -->

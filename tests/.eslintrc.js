@@ -1,8 +1,6 @@
 module.exports = {
+    plugins: ['jest'],
     env: {
-        mocha: true
-    },
-    rules: {
-        'no-unused-expressions': 0
+        jest: true
     }
 };
