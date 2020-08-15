@@ -14,8 +14,8 @@
 [![Issues][issues-shield]][issues-url]
 [![HitCount](http://hits.dwyl.com/zleight/webpack-import-map-plugin.svg)](http://hits.dwyl.com/zleight/webpack-import-map-plugin)
 [![Known Vulnerabilities](https://snyk.io/test/github/dwyl/hapi-auth-jwt2/badge.svg?targetFile=package.json&style=flat-square)](https://snyk.io/test/github/dwyl/hapi-auth-jwt2?targetFile=package.json)
-![Codecov](https://img.shields.io/codecov/c/github/zleight1/webpack-import-map-plugin/master?style=flat-square)
-![CircleCI](https://img.shields.io/circleci/build/github/zleight1/webpack-import-map-plugin/master?style=flat-square)
+[![Codecov](https://img.shields.io/codecov/c/github/zleight1/webpack-import-map-plugin/master?style=flat-square)](https://codecov.io/gh/zleight1/webpack-import-map-plugin)
+[![CircleCI](https://img.shields.io/circleci/build/github/zleight1/webpack-import-map-plugin/master?style=flat-square)](https://app.circleci.com/pipelines/github/zleight1/webpack-import-map-plugin?branch=master)
 
 
   
