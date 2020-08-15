@@ -6,6 +6,7 @@ workflows:
   node-tests:
     jobs:
       - node/test
+      - codecov/upload
 build:
   steps:
     - codecov/upload:
