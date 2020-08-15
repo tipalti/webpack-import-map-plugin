@@ -14,6 +14,9 @@
 [![Issues][issues-shield]][issues-url]
 [![HitCount](http://hits.dwyl.com/zleight/webpack-import-map-plugin.svg)](http://hits.dwyl.com/zleight/webpack-import-map-plugin)
 [![Known Vulnerabilities](https://snyk.io/test/github/dwyl/hapi-auth-jwt2/badge.svg?targetFile=package.json&style=flat-square)](https://snyk.io/test/github/dwyl/hapi-auth-jwt2?targetFile=package.json)
+![Codecov](https://img.shields.io/codecov/c/github/zleight1/webpack-import-map-plugin/master?style=flat-square)
+![CircleCI](https://img.shields.io/circleci/build/github/zleight1/webpack-import-map-plugin/master?style=flat-square)
+
 
   
 [![https://nodei.co/npm/webpack-import-map-plugin.png?downloads=true&downloadRank=true&stars=true](https://nodei.co/npm/webpack-import-map-plugin.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/webpack-import-map-plugin)
