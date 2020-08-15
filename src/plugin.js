@@ -1,5 +1,3 @@
-'use strict';
-
 const entries = require('object.entries');
 const path = require('path');
 const fse = require('fs-extra');
@@ -160,8 +158,7 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             } else if (_.isString(rule)) {
                 return val === rule;
             } else {
-                // todo warn
-                return true; // something invalid
+                compilation.errors.push(new TypeError('[webpack-import-map-plugin]: Unsupported type provided for include or exclude option.'));
             }
         };
 
@@ -257,7 +254,6 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         const isLastEmit = emitCount === 0;
         if (isLastEmit) {
             const output = this.opts.serialize(importMap);
-
             compilation.assets[outputName] = {
                 source: function () {
                     return output;

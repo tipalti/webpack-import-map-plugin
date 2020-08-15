@@ -9,7 +9,6 @@ const ImportMapPlugin = require('../index.js');
 const { isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
 
 const OUTPUT_DIR = __dirname;
-const importMapPath = path.join(OUTPUT_DIR, 'import-map.json');
 
 function webpackConfig (webpackOpts, opts) {
     const defaults = {
@@ -27,7 +26,7 @@ function webpackConfig (webpackOpts, opts) {
     return _.merge(defaults, webpackOpts);
 }
 
-function webpackCompile (webpackOpts, opts, cb) {
+function webpackCompile (webpackOpts, opts = {}, cb, allowError = false) {
     let config;
     if (Array.isArray(webpackOpts)) {
         config = webpackOpts.map(function (x) {
@@ -40,6 +39,8 @@ function webpackCompile (webpackOpts, opts, cb) {
     const compiler = webpack(config);
 
     const fs = compiler.outputFileSystem = new MemoryFileSystem();
+    const outFilename = opts.importMapOptions && opts.importMapOptions.fileName ? opts.importMapOptions.fileName : 'import-map.json';
+    const importMapPath = path.join(OUTPUT_DIR, outFilename);
 
     compiler.run(function (err, stats) {
         let manifestFile;
@@ -53,10 +54,12 @@ function webpackCompile (webpackOpts, opts, cb) {
             console.log(err);
             throw err;
         }
-        if (stats.hasErrors()) {
-            console.log(stats.toJson());
+        if (!allowError) {
+            if (stats.hasErrors()) {
+                console.log(stats.toJson());
+            }
+            expect(stats.hasErrors()).toBe(false);
         }
-        expect(stats.hasErrors()).toBe(false);
 
         cb(manifestFile, stats, fs);
     });
@@ -609,6 +612,403 @@ describe('ManifestPlugin', () => {
         });
     });
 
+    describe('include', () => {
+        it('match with string', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: 'two.js'
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with string array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: ['one.js', 'three.js']
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with regex', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: /wo\.js$/
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with regex array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: [/n/, /x/]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with mixed array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: ['one.js', /two/]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js',
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('emit errors with unsupported', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: () => true
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({ imports: {} });
+                expect(stats.hasErrors).toBeTruthy();
+                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                done();
+            }, true);
+        });
+        it('emit errors with unsupported in array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    include: ['xxx.js', false]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({ imports: {} });
+                expect(stats.hasErrors).toBeTruthy();
+                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                done();
+            }, true);
+        });
+    });
+    describe('exclude', () => {
+        it('match with string', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: 'two.js'
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with string array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: ['one.js', 'three.js']
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with regex', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: /wo\.js$/
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with regex array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: [/n/, /x/]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+        it('match with mixed array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: ['one.js', /two/]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {}
+                });
+
+                done();
+            });
+        });
+        it('emit errors with unsupported', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: () => true
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js',
+                        'two.js': 'two.js'
+                    }
+                });
+                expect(stats.hasErrors).toBeTruthy();
+                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                done();
+            }, true);
+        });
+        it('emit errors with unsupported in array', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    exclude: ['xxx.js', false]
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js',
+                        'two.js': 'two.js'
+                    }
+                });
+                expect(stats.hasErrors).toBeTruthy();
+                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                done();
+            }, true);
+        });
+    });
+    describe('transformValues', () => {
+        it('run the function on all values', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    transformValues: (path) => {
+                        return 'https://cdn.com/foo/' + path + 'x';
+                    }
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'https://cdn.com/foo/one.jsx',
+                        'two.js': 'https://cdn.com/foo/two.jsx'
+                    }
+                });
+
+                done();
+            });
+        });
+    });
+    describe('baseUrl', () => {
+        it('prepend the baseUrl on all values', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    baseUrl: 'https://my-cdn.com/'
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'https://my-cdn.com/one.js',
+                        'two.js': 'https://my-cdn.com/two.js'
+                    }
+                });
+
+                done();
+            });
+        });
+    });
     describe('sort', () => {
         it('should allow ordering of output', done => {
             webpackCompile({
