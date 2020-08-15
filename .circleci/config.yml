@@ -9,11 +9,11 @@ jobs:
       - checkout
       - node/install-packages
       - run:
-          command: npm run test -- --ci --testResultsProcessor="jest-junit"
+          command: npm run test -- --ci
       - store_test_results:
-          path: './junit.xml'
+          path: test-results
       - codecov/upload:
-          file: './coverage/clover.xml'
+          file: coverage/clover.xml
 workflows:
   node-tests:
     jobs:

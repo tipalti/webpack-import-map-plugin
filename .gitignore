@@ -59,4 +59,6 @@ typings/
 
 # next.js build output
 .next
-junit.xml
+
+# test results directory
+test-results
