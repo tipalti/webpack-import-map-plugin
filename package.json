@@ -10,7 +10,7 @@
     "preversion": "npm run test"
   },
   "engines": {
-    "node": ">=8.1.4"
+    "node": ">=10.13.0"
   },
   "dependencies": {
     "fs-extra": "^7.0.0",
