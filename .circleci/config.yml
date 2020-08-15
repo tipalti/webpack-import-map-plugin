@@ -2,9 +2,19 @@ version: 2.1
 orbs:
   node: circleci/node@3.0.0
   codecov: codecov/codecov@1.0.2
+jobs:
+  build:
+    executor: node/default
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: npm run test -- --ci --testResultsProcessor="jest-junit"
+      - store_test_results:
+          path: './junit.xml'
+      - codecov/upload:
+          file: './coverage/clover.xml'
 workflows:
   node-tests:
     jobs:
-      - node/test
-      - codecov/upload:
-          file: './coverage/clover.xml'
+      - build
