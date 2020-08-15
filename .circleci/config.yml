@@ -6,8 +6,5 @@ workflows:
   node-tests:
     jobs:
       - node/test
-      - codecov/upload
-build:
-  steps:
-    - codecov/upload:
-        file: {{ coverage_report_filepath }}
+      - codecov/upload:
+          file: './coverage/clover.xml'
