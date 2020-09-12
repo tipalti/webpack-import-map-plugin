@@ -47,7 +47,7 @@
   },
   "homepage": "https://github.com/zleight1/webpack-import-map-plugin#readme",
   "devDependencies": {
-    "eslint": "7.7.0",
+    "eslint": "7.9.0",
     "eslint-config-standard": "14.1.1",
     "eslint-plugin-import": "2.22.0",
     "eslint-plugin-jest": "23.20.0",
