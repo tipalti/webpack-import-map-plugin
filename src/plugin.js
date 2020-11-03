@@ -1,3 +1,4 @@
+const { overrideBaseImportMap } = require('./override');
 const entries = require('object.entries');
 const path = require('path');
 const fse = require('fs-extra');
@@ -29,16 +30,17 @@ function ImportMapPlugin (opts) {
         sort: null,
         serialize: function (manifest) {
             return JSON.stringify(manifest, null, 4);
-        }
+        },
+        baseImportMap: null
     }, opts || {});
 }
 
 ImportMapPlugin.getCompilerHooks = (compiler) => {
     let hooks = compilerHookMap.get(compiler);
     if (hooks === undefined) {
-        const SyncWaterfallHook = require('tapable').SyncWaterfallHook;
+        const AsyncSeriesHook = require('tapable').AsyncSeriesHook;
         hooks = {
-            afterEmit: new SyncWaterfallHook(['importmap'])
+            afterEmit: new AsyncSeriesHook(['importmap'])
         };
         compilerHookMap.set(compiler, hooks);
     }
@@ -71,7 +73,7 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         }
     };
 
-    const emit = function (compilation, compileCallback) {
+    const emit = function (compilation) {
         const emitCount = emitCountMap.get(outputFile) - 1;
         emitCountMap.set(outputFile, emitCount);
 
@@ -128,7 +130,7 @@ ImportMapPlugin.prototype.apply = function (compiler) {
                 });
             }
 
-            const isEntryAsset = asset.chunks.length > 0;
+            const isEntryAsset = (asset.chunks || []).length > 0;
             if (isEntryAsset) {
                 return files;
             }
@@ -246,33 +248,51 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             manifest = manifest.files;
         }
         // now take the manifest and wrap it in the import-map syntax
-        const importMap = {
+        const cleanImportMap = {
             imports: {
                 ...manifest
             }
         };
         const isLastEmit = emitCount === 0;
+        const compilationHooks = importMap => {
+            return ImportMapPlugin
+                .getCompilerHooks(compiler)
+                .afterEmit
+                .promise(importMap)
+                .then((res) => {
+                    return importMap;
+                });
+        };
         if (isLastEmit) {
-            const output = this.opts.serialize(importMap);
-            compilation.assets[outputName] = {
-                source: function () {
-                    return output;
-                },
-                size: function () {
-                    return output.length;
+            const emitter = importMap => {
+                const output = this.opts.serialize(importMap);
+                compilation.assets[outputName] = {
+                    source: function () {
+                        return output;
+                    },
+                    size: function () {
+                        return output.length;
+                    }
+                };
+
+                if (this.opts.writeToFileEmit) {
+                    fse.outputFileSync(outputFile, output);
                 }
+                return compilationHooks(importMap);
             };
-
-            if (this.opts.writeToFileEmit) {
-                fse.outputFileSync(outputFile, output);
+            let importMapPromise = new Promise(resolve => resolve(cleanImportMap));
+            if (this.opts.baseImportMap) {
+                importMapPromise = overrideBaseImportMap(this.opts.baseImportMap, cleanImportMap);
             }
+            return importMapPromise
+                .then(emitter)
+                .catch(e => {
+                    console.error(e.message);
+                    compilation.errors.push(new TypeError('[webpack-import-map-plugin]: An error occured during the base override handler. Emitting non-overriden import-map.json as a fallback.'));
+                    return emitter(cleanImportMap);
+                });
         }
-
-        if (compiler.hooks) {
-            ImportMapPlugin.getCompilerHooks(compiler).afterEmit.call(importMap);
-        } else {
-            compilation.applyPluginsAsync('webpack-import-map-plugin-after-emit', importMap, compileCallback);
-        }
+        return Promise.resolve();
     }.bind(this);
 
     function beforeRun (compiler, callback) {
@@ -297,18 +317,10 @@ ImportMapPlugin.prototype.apply = function (compiler) {
         compiler.hooks.compilation.tap(pluginOptions, function (compilation) {
             compilation.hooks.moduleAsset.tap(pluginOptions, moduleAsset);
         });
-        compiler.hooks.emit.tap(pluginOptions, emit);
+        compiler.hooks.emit.tapPromise(pluginOptions, emit);
 
         compiler.hooks.run.tap(pluginOptions, beforeRun);
         compiler.hooks.watchRun.tap(pluginOptions, beforeRun);
-    } else {
-        compiler.plugin('compilation', function (compilation) {
-            compilation.plugin('module-asset', moduleAsset);
-        });
-        compiler.plugin('emit', emit);
-
-        compiler.plugin('before-run', beforeRun);
-        compiler.plugin('watch-run', beforeRun);
     }
 };
 

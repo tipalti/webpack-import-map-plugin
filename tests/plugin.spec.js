@@ -4,10 +4,12 @@ const path = require('path');
 const MemoryFileSystem = require('memory-fs');
 const webpack = require('webpack');
 const _ = require('lodash');
+const axios = require('axios');
 const FakeCopyWebpackPlugin = require('./helpers/copy-plugin-mock');
 const ImportMapPlugin = require('../index.js');
 const { isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
 
+jest.mock('axios');
 const OUTPUT_DIR = __dirname;
 
 function webpackConfig (webpackOpts, opts) {
@@ -65,9 +67,48 @@ function webpackCompile (webpackOpts, opts = {}, cb, allowError = false) {
     });
 }
 
-describe('ManifestPlugin', () => {
+describe('ImportMapPlugin', () => {
     it('exists', () => {
         expect(ImportMapPlugin).toBeDefined();
+    });
+    describe('baseImportMap', () => {
+        it('should retrieve the remote import map and merge with emitted', done => {
+            const response = {
+                data:
+
+                {
+                    imports: {
+                        'base.js': 'http://remote.cdn.com/files.js'
+                    }
+                }
+            };
+            axios.get.mockResolvedValue(response);
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js',
+                    two: './fixtures/file-two.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    // todo actually mock this
+                    baseImportMap: 'http://mock.com/import-map.json'
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'base.js': 'http://remote.cdn.com/files.js',
+                        'one.js': 'one.js',
+                        'two.js': 'two.js'
+                    }
+                });
+
+                done();
+            });
+        });
     });
 
     describe('basic behavior', () => {
@@ -601,11 +642,22 @@ describe('ManifestPlugin', () => {
                     }
                 }
             }, function (importMap) {
-                expect(importMap).toEqual({
-                    imports: {
-                        'foo/main.js': 'javascripts/main.js'
-                    }
-                });
+                let importMapByOs;
+                if (process.platform === 'win32') {
+                    importMapByOs = {
+                        imports: {
+                            'foo\\main.js': 'javascripts/main.js'
+                        }
+                    };
+                } else {
+                    importMapByOs = {
+                        imports: {
+                            'foo/main.js': 'javascripts/main.js'
+                        }
+                    };
+                }
+
+                expect(importMap).toEqual(importMapByOs);
 
                 done();
             });
