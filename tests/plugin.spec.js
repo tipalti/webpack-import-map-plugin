@@ -6,7 +6,7 @@ const webpack = require('webpack');
 const _ = require('lodash');
 const axios = require('axios');
 const FakeCopyWebpackPlugin = require('./helpers/copy-plugin-mock');
-const ImportMapPlugin = require('../index.js');
+const { ImportMapPlugin } = require('../index.js');
 const { isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
 
 jest.mock('axios');
@@ -71,12 +71,10 @@ describe('ImportMapPlugin', () => {
     it('exists', () => {
         expect(ImportMapPlugin).toBeDefined();
     });
-    describe('baseImportMap', () => {
+    describe.skip('baseImportMap', () => {
         it('should retrieve the remote import map and merge with emitted', done => {
             const response = {
-                data:
-
-                {
+                data: {
                     imports: {
                         'base.js': 'http://remote.cdn.com/files.js'
                     }
@@ -189,7 +187,7 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        it('prefixes definitions with a base url', done => {
+        it('prefixes definitions with publicPath', done => {
             webpackCompile({
                 context: __dirname,
                 entry: {
@@ -200,7 +198,7 @@ describe('ImportMapPlugin', () => {
                 }
             }, {
                 importMapOptions: {
-                    baseUrl: '/app/'
+                    publicPath: '/app/'
                 }
             }, function (importMap, stats) {
                 expect(importMap).toEqual({
@@ -213,8 +211,8 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        describe('transformKeys', () => {
-            it('applies the transform keys on all the key values', done => {
+        describe('mapKeys', () => {
+            it('applies the mapKeys on all the key values', done => {
                 webpackCompile({
                     context: __dirname,
                     entry: {
@@ -226,7 +224,7 @@ describe('ImportMapPlugin', () => {
                     }
                 }, {
                     importMapOptions: {
-                        transformKeys: x => `zzz/${x}`
+                        mapKeys: x => `zzz/${x}`
                     }
                 }, function (importMap, stats) {
                     expect(importMap).toEqual({
@@ -251,7 +249,7 @@ describe('ImportMapPlugin', () => {
                     }
                 }, {
                     importMapOptions: {
-                        baseUrl: '/foo/'
+                        publicPath: '/foo/'
                     }
                 }, function (importMap, stats) {
                     expect(importMap).toEqual({
@@ -265,7 +263,7 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        it('should keep full urls provided by baseUrl', done => {
+        it('should keep full urls provided by plugin publicPath', done => {
             webpackCompile({
                 context: __dirname,
                 entry: {
@@ -276,7 +274,7 @@ describe('ImportMapPlugin', () => {
                 }
             }, {
                 importMapOptions: {
-                    baseUrl: 'https://www/example.com/'
+                    publicPath: 'https://www/example.com/'
                 }
             }, function (importMap, stats) {
                 expect(importMap).toEqual({
@@ -289,7 +287,7 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        it('should keep full urls provided by publicPath', done => {
+        it('should keep full urls provided by output publicPath', done => {
             webpackCompile({
                 context: __dirname,
                 entry: {
@@ -310,62 +308,6 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        it('adds seed object custom attributes when provided', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js'
-                },
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
-                    seed: {
-                        test1: 'test2'
-                    }
-                }
-            }, function (importMap) {
-                expect(importMap).toEqual({
-                    imports: {
-                        'one.js': 'one.js',
-                        test1: 'test2'
-                    }
-                });
-
-                done();
-            });
-        });
-
-        it('does not prefix seed attributes with baseUrl', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js'
-                },
-                output: {
-                    filename: '[name].[hash].js',
-                    publicPath: '/app/'
-                }
-            }, {
-                importMapOptions: {
-                    baseUrl: '/app/',
-                    seed: {
-                        test1: 'test2'
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({
-                    imports: {
-                        'one.js': '/app/one.' + stats.hash + '.js',
-                        test1: 'test2'
-                    }
-                });
-
-                done();
-            });
-        });
-
         it('combines manifests of multiple compilations', done => {
             webpackCompile([{
                 context: __dirname,
@@ -379,7 +321,6 @@ describe('ImportMapPlugin', () => {
                 }
             }], {
                 importMapOptions: {
-                    seed: {}
                 }
             }, function (importMap) {
                 expect(importMap).toEqual({
@@ -515,7 +456,7 @@ describe('ImportMapPlugin', () => {
                         filename: '[name].[hash].js'
                     }
                 }, {}, function (importMap, stats) {
-                    expect(Object.keys(importMap.imports).length).toBe(2);
+                    expect(Object.keys(importMap.imports)).toHaveLength(2);
                     expect(importMap.imports['nameless.js']).toEqual('nameless.' + stats.hash + '.js');
 
                     done();
@@ -572,94 +513,6 @@ describe('ImportMapPlugin', () => {
 
                     done();
                 });
-            });
-        });
-    });
-
-    describe('filter', () => {
-        it('should filter out non-initial chunks', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    nameless: './fixtures/nameless.js'
-                },
-                output: {
-                    filename: '[name].[hash].js'
-                }
-            }, {
-                importMapOptions: {
-                    filter: function (file) {
-                        return file.isInitial;
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(Object.keys(importMap.imports).length).toBe(1);
-                expect(importMap.imports['nameless.js']).toEqual('nameless.' + stats.hash + '.js');
-
-                done();
-            });
-        });
-    });
-
-    describe('map', () => {
-        it('should allow modifying files defails', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: './fixtures/file.js',
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
-                    map: function (file, i) {
-                        file.name = i.toString();
-                        return file;
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({
-                    imports: {
-                        0: 'main.js'
-                    }
-                });
-
-                done();
-            });
-        });
-
-        it('should allow file name changes', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: './fixtures/file.js',
-                output: {
-                    filename: 'javascripts/main.js'
-                }
-            }, {
-                importMapOptions: {
-                    map: function (file) {
-                        file.name = path.join('foo/', file.name);
-                        return file;
-                    }
-                }
-            }, function (importMap) {
-                let importMapByOs;
-                if (process.platform === 'win32') {
-                    importMapByOs = {
-                        imports: {
-                            'foo\\main.js': 'javascripts/main.js'
-                        }
-                    };
-                } else {
-                    importMapByOs = {
-                        imports: {
-                            'foo/main.js': 'javascripts/main.js'
-                        }
-                    };
-                }
-
-                expect(importMap).toEqual(importMapByOs);
-
-                done();
             });
         });
     });
@@ -786,49 +639,21 @@ describe('ImportMapPlugin', () => {
                 done();
             });
         });
-        it('emit errors with unsupported', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js',
-                    two: './fixtures/file-two.js'
-                },
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
+        it('emit errors with unsupported', () => {
+            expect(() => {
+                const plugin = new ImportMapPlugin({
                     include: () => true
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({ imports: {} });
-                expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
-
-                done();
-            }, true);
+                });
+                plugin.apply();
+            }).toThrow();
         });
-        it('emit errors with unsupported in array', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js',
-                    two: './fixtures/file-two.js'
-                },
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
+        it('emit errors with unsupported in array', () => {
+            expect(() => {
+                const plugin = new ImportMapPlugin({
                     include: ['xxx.js', false]
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({ imports: {} });
-                expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
-
-                done();
-            }, true);
+                });
+                plugin.apply();
+            }).toThrow();
         });
     });
     describe('exclude', () => {
@@ -950,32 +775,13 @@ describe('ImportMapPlugin', () => {
                 done();
             });
         });
-        it('emit errors with unsupported', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js',
-                    two: './fixtures/file-two.js'
-                },
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
+        it('emit errors with unsupported', () => {
+            expect(() => {
+                const plugin = new ImportMapPlugin({
                     exclude: () => true
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({
-                    imports: {
-                        'one.js': 'one.js',
-                        'two.js': 'two.js'
-                    }
                 });
-                expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
-
-                done();
-            }, true);
+                plugin.apply();
+            }).toThrow();
         });
         it('emit errors with unsupported in array', done => {
             webpackCompile({
@@ -1005,7 +811,7 @@ describe('ImportMapPlugin', () => {
             }, true);
         });
     });
-    describe('transformValues', () => {
+    describe('mapValues', () => {
         it('run the function on all values', done => {
             webpackCompile({
                 context: __dirname,
@@ -1018,7 +824,7 @@ describe('ImportMapPlugin', () => {
                 }
             }, {
                 importMapOptions: {
-                    transformValues: (path) => {
+                    mapValues: (path) => {
                         return 'https://cdn.com/foo/' + path + 'x';
                     }
                 }
@@ -1034,8 +840,8 @@ describe('ImportMapPlugin', () => {
             });
         });
     });
-    describe('baseUrl', () => {
-        it('prepend the baseUrl on all values', done => {
+    describe('publicPath', () => {
+        it('prepend the publicPath on all values', done => {
             webpackCompile({
                 context: __dirname,
                 entry: {
@@ -1047,7 +853,7 @@ describe('ImportMapPlugin', () => {
                 }
             }, {
                 importMapOptions: {
-                    baseUrl: 'https://my-cdn.com/'
+                    publicPath: 'https://my-cdn.com/'
                 }
             }, function (importMap, stats) {
                 expect(importMap).toEqual({
@@ -1061,91 +867,23 @@ describe('ImportMapPlugin', () => {
             });
         });
     });
-    describe('sort', () => {
-        it('should allow ordering of output', done => {
+
+    describe('with CopyWebpackPlugin', () => {
+        it('works when including copied assets', done => {
             webpackCompile({
                 context: __dirname,
                 entry: {
-                    one: './fixtures/file.js',
-                    two: './fixtures/file-two.js'
+                    one: './fixtures/file.js'
                 },
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
-                    sort: function (a, b) {
-                        // make sure one is the latest
-                        return a.name === 'one.js' ? 1 : -1;
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(Object.keys(importMap.imports)).toEqual(['two.js', 'one.js']);
-
-                done();
-            });
-        });
-    });
-
-    describe('generate', () => {
-        it('should default to `seed`', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: './fixtures/file.js',
-                output: {
-                    filename: '[name].js'
-                }
-            }, {
-                importMapOptions: {
-                    seed: {
-                        key: 'value'
-                    },
-                    generate: function (seed) {
-                        expect(seed).toEqual({
-                            key: 'value'
-                        });
-                        return seed;
-                    }
-                }
-            }, function (importMap, stats) {
-                expect(importMap).toEqual({
-                    imports: {
-                        key: 'value'
-                    }
-                });
-
-                done();
-            });
-        });
-
-        it('should generate importMap with flattened "entrypoints"', done => {
-            webpackCompile({
-                context: __dirname,
-                entry: {
-                    one: './fixtures/file.js',
-                    two: './fixtures/file-two.js'
-                }
-            }, {
-                importMapOptions: {
-                    generate: (seed, files, entrypoints) => {
-                        const manifestFiles = files.reduce(
-                            (importMap, { name, path }) => Object.assign(importMap, {
-                                [name]: path
-                            }),
-                            seed
-                        );
-                        return {
-                            files: manifestFiles,
-                            entrypoints
-                        };
-                    }
-                }
-            },
-            (importMap, stats) => {
+                plugins: [
+                    new FakeCopyWebpackPlugin(),
+                    new ImportMapPlugin()
+                ]
+            }, {}, function (importMap, stats) {
                 expect(importMap).toEqual({
                     imports: {
                         'one.js': 'one.js',
-                        'two.js': 'two.js'
+                        'third.party.js': 'third.party.js'
                     }
                 });
 
@@ -1153,12 +891,47 @@ describe('ImportMapPlugin', () => {
             });
         });
 
-        describe('with CopyWebpackPlugin', () => {
-            it('works when including copied assets', done => {
+        it(
+            'doesn\'t add duplicates when prefixes definitions with a base path',
+            done => {
                 webpackCompile({
                     context: __dirname,
                     entry: {
                         one: './fixtures/file.js'
+                    },
+                    output: {
+                        filename: '[name].[hash].js',
+                        publicPath: '/app/'
+                    },
+                    plugins: [
+                        new FakeCopyWebpackPlugin(),
+                        new ImportMapPlugin({
+                            publicPath: '/app/'
+                        })
+                    ]
+                }, {}, function (importMap, stats) {
+                    expect(importMap).toEqual({
+                        imports: {
+                            'one.js': '/app/one.' + stats.hash + '.js',
+                            'third.party.js': '/app/third.party.js'
+                        }
+                    });
+
+                    done();
+                });
+            }
+        );
+
+        it(
+            'doesn\'t add duplicates when used with hashes in the filename',
+            done => {
+                webpackCompile({
+                    context: __dirname,
+                    entry: {
+                        one: './fixtures/file.js'
+                    },
+                    output: {
+                        filename: '[name].[hash].js'
                     },
                     plugins: [
                         new FakeCopyWebpackPlugin(),
@@ -1167,73 +940,14 @@ describe('ImportMapPlugin', () => {
                 }, {}, function (importMap, stats) {
                     expect(importMap).toEqual({
                         imports: {
-                            'one.js': 'one.js',
+                            'one.js': 'one.' + stats.hash + '.js',
                             'third.party.js': 'third.party.js'
                         }
                     });
 
                     done();
                 });
-            });
-
-            it(
-                'doesn\'t add duplicates when prefixes definitions with a base path',
-                done => {
-                    webpackCompile({
-                        context: __dirname,
-                        entry: {
-                            one: './fixtures/file.js'
-                        },
-                        output: {
-                            filename: '[name].[hash].js',
-                            publicPath: '/app/'
-                        },
-                        plugins: [
-                            new FakeCopyWebpackPlugin(),
-                            new ImportMapPlugin({
-                                baseUrl: '/app/'
-                            })
-                        ]
-                    }, {}, function (importMap, stats) {
-                        expect(importMap).toEqual({
-                            imports: {
-                                'one.js': '/app/one.' + stats.hash + '.js',
-                                'third.party.js': '/app/third.party.js'
-                            }
-                        });
-
-                        done();
-                    });
-                }
-            );
-
-            it(
-                'doesn\'t add duplicates when used with hashes in the filename',
-                done => {
-                    webpackCompile({
-                        context: __dirname,
-                        entry: {
-                            one: './fixtures/file.js'
-                        },
-                        output: {
-                            filename: '[name].[hash].js'
-                        },
-                        plugins: [
-                            new FakeCopyWebpackPlugin(),
-                            new ImportMapPlugin()
-                        ]
-                    }, {}, function (importMap, stats) {
-                        expect(importMap).toEqual({
-                            imports: {
-                                'one.js': 'one.' + stats.hash + '.js',
-                                'third.party.js': 'third.party.js'
-                            }
-                        });
-
-                        done();
-                    });
-                }
-            );
-        });
+            }
+        );
     });
 });

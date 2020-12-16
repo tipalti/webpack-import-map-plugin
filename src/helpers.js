@@ -1,18 +1,15 @@
-const generateManifest = (compilation, files, { generate, seed = {} }) => {
+'use strict';
+
+const generateManifest = (files) => {
     let result;
-    if (generate) {
-        const entrypointsArray = Array.from(compilation.entrypoints.entries());
-        const entrypoints = entrypointsArray.reduce(
-            (e, [name, entrypoint]) => Object.assign(e, { [name]: entrypoint.getFiles() }),
-            {}
-        );
-        result = generate(seed, files, entrypoints);
-    } else {
-        result = files.reduce(
-            (manifest, file) => Object.assign(manifest, { [file.name]: file.path }),
-            seed
-        );
-    }
+    result = files.reduce(
+        (manifest, file) => Object.assign(manifest, { [file.name]: file.path }),
+        {}
+    );
+
+    result = {
+        imports: { ...result }
+    };
 
     return result;
 };
@@ -76,18 +73,20 @@ const reduceChunk = (files, chunk, options) =>
         files
     );
 
+function validURL (str) {
+    const pattern = new RegExp('^(https?:\\/\\/)' + // protocol
+              '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|' + // domain name
+              '((\\d{1,3}\\.){3}\\d{1,3}))' + // OR ip (v4) address
+              '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*' + // port and path
+              '(\\?[;&a-z\\d%_.~+=-]*)?' + // query string
+              '(\\#[-a-z\\d_]*)?$', 'i'); // fragment locator
+    return !!pattern.test(str);
+}
+
 const standardizeFilePaths = (file) => {
-    const result = Object.assign({}, file);
-    result.name = file.name.replace(/\\/g, '/');
-    result.path = file.path.replace(/\\/g, '/');
-    return result;
+    file.name = file.name.replace(/\\/g, '/');
+    file.path = file.path.replace(/\\/g, '/');
+    return file;
 };
 
-const transformFiles = (files, options) =>
-    ['filter', 'map', 'sort']
-        .filter((fname) => !!options[fname])
-    // TODO: deprecate these
-        .reduce((prev, fname) => prev[fname](options[fname]), files)
-        .map(standardizeFilePaths);
-
-module.exports = { generateManifest, reduceAssets, reduceChunk, transformFiles };
+module.exports = { generateManifest, reduceAssets, reduceChunk, validURL, standardizeFilePaths };

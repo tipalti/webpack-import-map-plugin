@@ -15,6 +15,12 @@
                 { "instanceof": "RegExp" }
             ]
         },
+        "mapKeys": {
+            "instanceof": "Function"
+        },
+        "mapValues": {
+            "instanceof": "Function"
+        },
         "transformExtensions": {
             "instanceof": "RegExp"
         },
@@ -23,6 +29,15 @@
         },
         "serialize": {
             "instanceof": "Function"
+        },
+        "baseImportMap": {
+            "type": "string"
+        },
+        "publicPath": {
+            "type": "string"
+        },
+        "writeToFileEmit": {
+            "type": "boolean"
         }
     },
     "errorMessage": {
