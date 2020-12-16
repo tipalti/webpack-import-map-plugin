@@ -62,3 +62,6 @@ typings/
 
 # test results directory
 test-results
+
+# build output directory
+dist
