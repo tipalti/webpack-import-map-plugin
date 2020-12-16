@@ -1,0 +1,32 @@
+{
+    "type": "object",
+    "properties": {
+        "include": {
+            "anyOf": [
+                { "type": "array" },
+                { "type": "string" },
+                { "instanceof": "RegExp" }
+            ]
+        },
+        "exclude": {
+            "anyOf": [
+                { "type": "array" },
+                { "type": "string" },
+                { "instanceof": "RegExp" }
+            ]
+        },
+        "transformExtensions": {
+            "instanceof": "RegExp"
+        },
+        "fileName": {
+            "type": "string"
+        },
+        "serialize": {
+            "instanceof": "Function"
+        }
+    },
+    "errorMessage": {
+        "transformExtensions": "should be {RegExp} (https:/github.com/zleight1/webpack-import-map-plugin"
+    },
+    "additionalProperties": false
+}

@@ -1,9 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
 
-
-
-
 /*
  * SplitChunksPlugin is enabled by default and replaced
  * deprecated CommonsChunkPlugin. It automatically identifies modules which
@@ -27,50 +24,48 @@ const webpack = require('webpack');
 
 const TerserPlugin = require('terser-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const ImportMapPlugin = require('./plugin');
+const { ImportMapPlugin } = require('./src/index');
 const HelloPlugin = require('./hello-plugin');
 
-
-
-
 module.exports = {
-  mode: 'development',
-  plugins: [
-    new webpack.ProgressPlugin(),
-     new CleanWebpackPlugin(), 
-     new ImportMapPlugin(),
+    mode: 'development',
+    plugins: [
+        new webpack.ProgressPlugin(),
+        new CleanWebpackPlugin(),
+        new ImportMapPlugin()
     //  new HelloPlugin(),
     ],
 
-  output: {
-    filename: '[name].[contenthash].bundle.js',
-    chunkFilename: '[name].[contenthash].chunk.js',
-    path: path.resolve(__dirname, 'dist')
-  },
+    output: {
+        filename: '[name].[contenthash].bundle.js',
+        chunkFilename: '[name].[contenthash].chunk.js',
+        path: path.resolve(__dirname, 'dist')
+    },
 
-  module: {
-    rules: [{
-      test: /\.(js|jsx)$/,
-      include: [path.resolve(__dirname, 'src')],
-      loader: 'babel-loader'
-    }]
-  },
+    module: {
+        rules: [{
+            test: /\.(js|jsx)$/,
+            include: [path.resolve(__dirname, 'src')],
+            loader: 'babel-loader'
+        }]
+    },
 
-  optimization: {
-    minimizer: [new TerserPlugin()],
+    optimization: {
+        minimizer: [new TerserPlugin()],
 
-    splitChunks: {
-      cacheGroups: {
-        vendors: {
-          priority: -10,
-          test: /[\\/]node_modules[\\/]/
+        splitChunks: {
+            cacheGroups: {
+                vendors: {
+                    priority: -10,
+                    test: /[\\/]node_modules[\\/]/
+                }
+            },
+
+            chunks: 'async',
+            minChunks: 1,
+            minSize: 30000,
+            name: false
         }
-      },
-
-      chunks: 'async',
-      minChunks: 1,
-      minSize: 30000,
-      name: false
     }
-  }
 }
+;
