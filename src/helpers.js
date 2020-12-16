@@ -1,10 +1,10 @@
 'use strict';
 
-const generateManifest = (files) => {
+const generateManifest = (files, { seed = {} }) => {
     let result;
     result = files.reduce(
         (manifest, file) => Object.assign(manifest, { [file.name]: file.path }),
-        {}
+        seed
     );
 
     result = {

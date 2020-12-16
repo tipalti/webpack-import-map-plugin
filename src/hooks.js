@@ -120,7 +120,7 @@ const emitHook = function emit (
 
     files = files.map(standardizeFilePaths);
 
-    let manifest = generateManifest(files);
+    let manifest = generateManifest(files, options);
     const isLastEmit = emitCount === 0;
 
     manifest = getCompilerHooks(compiler).beforeEmit.call(manifest);

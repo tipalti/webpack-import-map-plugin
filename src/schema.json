@@ -30,6 +30,9 @@
         "serialize": {
             "instanceof": "Function"
         },
+        "seed": {
+            "type": "object"
+        },
         "baseImportMap": {
             "type": "string"
         },

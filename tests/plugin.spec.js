@@ -308,6 +308,62 @@ describe('ImportMapPlugin', () => {
             });
         });
 
+        it('adds seed object custom attributes when provided', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js'
+                },
+                output: {
+                    filename: '[name].js'
+                }
+            }, {
+                importMapOptions: {
+                    seed: {
+                        test1: 'test2'
+                    }
+                }
+            }, function (importMap) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': 'one.js',
+                        test1: 'test2'
+                    }
+                });
+
+                done();
+            });
+        });
+
+        it('does not prefix seed attributes with publicPath', done => {
+            webpackCompile({
+                context: __dirname,
+                entry: {
+                    one: './fixtures/file.js'
+                },
+                output: {
+                    filename: '[name].[hash].js',
+                    publicPath: '/app/'
+                }
+            }, {
+                importMapOptions: {
+                    publicPath: '/app/',
+                    seed: {
+                        test1: 'test2'
+                    }
+                }
+            }, function (importMap, stats) {
+                expect(importMap).toEqual({
+                    imports: {
+                        'one.js': '/app/one.' + stats.hash + '.js',
+                        test1: 'test2'
+                    }
+                });
+
+                done();
+            });
+        });
+
         it('combines manifests of multiple compilations', done => {
             webpackCompile([{
                 context: __dirname,
@@ -321,6 +377,7 @@ describe('ImportMapPlugin', () => {
                 }
             }], {
                 importMapOptions: {
+                    seed: {}
                 }
             }, function (importMap) {
                 expect(importMap).toEqual({
