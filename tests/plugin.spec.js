@@ -356,7 +356,8 @@ describe('ManifestPlugin', () => {
             webpackCompile({
                 context: __dirname,
                 entry: './fixtures/file.txt',
-                module: isWebpackVersionGte(4) ? {
+                module: isWebpackVersionGte(4) ?
+                {
                     rules: [{
                         test: /\.(txt)/,
                         use: [{
@@ -366,7 +367,8 @@ describe('ManifestPlugin', () => {
                             }
                         }]
                     }]
-                } : {
+                } : 
+                {
                     loaders: [
                         { test: /\.(txt)/, loader: 'file-loader?name=file.[ext]' }
                     ]
