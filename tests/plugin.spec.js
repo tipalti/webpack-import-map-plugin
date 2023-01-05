@@ -5,7 +5,7 @@ const MemoryFileSystem = require('memory-fs');
 const webpack = require('webpack');
 const _ = require('lodash');
 const FakeCopyWebpackPlugin = require('./helpers/copy-plugin-mock');
-const ImportMapPlugin = require('../index.js');
+const ImportMapPlugin = require('../');
 const { isWebpackVersionGte } = require('./helpers/webpack-version-helpers');
 
 const OUTPUT_DIR = __dirname;
@@ -113,7 +113,7 @@ describe('ManifestPlugin', () => {
                     one: './fixtures/file.js'
                 },
                 output: {
-                    filename: '[name].[hash].js'
+                    filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js')
                 }
             }, {}, function (importMap, stats) {
                 expect(importMap).toEqual({
@@ -129,7 +129,7 @@ describe('ManifestPlugin', () => {
         it('works with source maps', done => {
             webpackCompile({
                 context: __dirname,
-                devtool: 'sourcemap',
+                devtool: (isWebpackVersionGte(5) ? 'source-map' : 'sourcemap'),
                 entry: {
                     one: './fixtures/file.js'
                 },
@@ -155,7 +155,7 @@ describe('ManifestPlugin', () => {
                     one: './fixtures/file.js'
                 },
                 output: {
-                    filename: '[name].[hash].js'
+                    filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js')
                 }
             }, {
                 importMapOptions: {
@@ -180,7 +180,7 @@ describe('ManifestPlugin', () => {
                         one: './fixtures/file.js'
                     },
                     output: {
-                        filename: '[name].[hash].js',
+                        filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js'),
                         publicPath: '/app/'
                     }
                 }, {
@@ -205,7 +205,7 @@ describe('ManifestPlugin', () => {
                         one: './fixtures/file.js'
                     },
                     output: {
-                        filename: '[name].[hash].js',
+                        filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js'),
                         publicPath: '/not-foo/'
                     }
                 }, {
@@ -303,7 +303,7 @@ describe('ManifestPlugin', () => {
                     one: './fixtures/file.js'
                 },
                 output: {
-                    filename: '[name].[hash].js',
+                    filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js'),
                     publicPath: '/app/'
                 }
             }, {
@@ -471,7 +471,7 @@ describe('ManifestPlugin', () => {
                         nameless: './fixtures/nameless.js'
                     },
                     output: {
-                        filename: '[name].[hash].js'
+                        filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js')
                     }
                 }, {}, function (importMap, stats) {
                     expect(Object.keys(importMap.imports).length).toBe(2);
@@ -543,7 +543,7 @@ describe('ManifestPlugin', () => {
                     nameless: './fixtures/nameless.js'
                 },
                 output: {
-                    filename: '[name].[hash].js'
+                    filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js')
                 }
             }, {
                 importMapOptions: {
@@ -596,7 +596,7 @@ describe('ManifestPlugin', () => {
             }, {
                 importMapOptions: {
                     map: function (file) {
-                        file.name = path.join('foo/', file.name);
+                        file.name = path.posix.join('foo', file.name);
                         return file;
                     }
                 }
@@ -751,7 +751,11 @@ describe('ManifestPlugin', () => {
             }, function (importMap, stats) {
                 expect(importMap).toEqual({ imports: {} });
                 expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                let error;
+                error = stats.toJson().errors[0];
+                error = (error instanceof Object) ? error.message : error;
+                expect(error).toMatch('[webpack-import-map-plugin]');
 
                 done();
             }, true);
@@ -773,7 +777,11 @@ describe('ManifestPlugin', () => {
             }, function (importMap, stats) {
                 expect(importMap).toEqual({ imports: {} });
                 expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                let error;
+                error = stats.toJson().errors[0];
+                error = (error instanceof Object) ? error.message : error;
+                expect(error).toMatch('[webpack-import-map-plugin]');
 
                 done();
             }, true);
@@ -920,7 +928,11 @@ describe('ManifestPlugin', () => {
                     }
                 });
                 expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                let error;
+                error = stats.toJson().errors[0];
+                error = (error instanceof Object) ? error.message : error;
+                expect(error).toMatch('[webpack-import-map-plugin]');
 
                 done();
             }, true);
@@ -947,7 +959,11 @@ describe('ManifestPlugin', () => {
                     }
                 });
                 expect(stats.hasErrors).toBeTruthy();
-                expect(stats.toJson().errors[0]).toMatch('[webpack-import-map-plugin]');
+
+                let error;
+                error = stats.toJson().errors[0];
+                error = (error instanceof Object) ? error.message : error;
+                expect(error).toMatch('[webpack-import-map-plugin]');
 
                 done();
             }, true);
@@ -1133,7 +1149,7 @@ describe('ManifestPlugin', () => {
                             one: './fixtures/file.js'
                         },
                         output: {
-                            filename: '[name].[hash].js',
+                            filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js'),
                             publicPath: '/app/'
                         },
                         plugins: [
@@ -1164,7 +1180,7 @@ describe('ManifestPlugin', () => {
                             one: './fixtures/file.js'
                         },
                         output: {
-                            filename: '[name].[hash].js'
+                            filename: (isWebpackVersionGte(5) ? '[name].[fullhash].js' : '[name].[hash].js')
                         },
                         plugins: [
                             new FakeCopyWebpackPlugin(),

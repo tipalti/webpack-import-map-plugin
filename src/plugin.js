@@ -1,6 +1,6 @@
 const entries = require('object.entries');
 const path = require('path');
-const fse = require('fs-extra');
+const fs = require('fs');
 const _ = require('lodash');
 
 const standardizeFilePaths = (file) => {
@@ -77,7 +77,13 @@ ImportMapPlugin.prototype.apply = function (compiler) {
 
         const seed = this.opts.seed || {};
 
-        const baseUrl = (this.opts.baseUrl != null ? this.opts.baseUrl : compilation.options.output.publicPath) || ''; // fallback to public path
+        const baseUrl = (
+            (this.opts.baseUrl != null)
+                ? this.opts.baseUrl
+                : (compilation.options.output.publicPath !== 'auto')
+                    ? compilation.options.output.publicPath
+                    : ''
+        ) || ''; // fallback to public path
         const stats = compilation.getStats().toJson({
             // Disable data generation of everything we don't use
             all: false,
@@ -87,61 +93,78 @@ ImportMapPlugin.prototype.apply = function (compiler) {
             cachedAssets: true
         });
 
-        let files = compilation.chunks.reduce(function (files, chunk) {
-            return chunk.files.reduce(function (files, path) {
-                let name = chunk.name ? chunk.name : null;
+        let files = (Array.isArray(compilation.chunks) ? compilation.chunks : Array.from(compilation.chunks || []))
+            .reduce(function (files, chunk) {
+                return (Array.isArray(chunk.files) ? chunk.files : Array.from(chunk.files || []))
+                    .reduce(function (files, path) {
+                        let name = chunk.name ? chunk.name : null;
 
-                if (name) {
-                    name = name + '.' + this.getFileType(path);
-                } else {
-                    // For nameless chunks, just map the files directly.
-                    name = path;
-                }
+                        if (name) {
+                            name = name + '.' + this.getFileType(path);
+                        } else {
+                            // For nameless chunks, just map the files directly.
+                            name = path;
+                        }
 
-                // Webpack 4: .isOnlyInitial()
-                // Webpack 3: .isInitial()
-                // Webpack 1/2: .initial
-                return files.concat({
-                    path: path,
-                    chunk: chunk,
-                    name: name,
-                    isInitial: chunk.isOnlyInitial ? chunk.isOnlyInitial() : (chunk.isInitial ? chunk.isInitial() : chunk.initial),
-                    isChunk: true,
-                    isAsset: false,
-                    isModuleAsset: false
-                });
-            }.bind(this), files);
-        }.bind(this), []);
+                        // Webpack 4/5: .isOnlyInitial()
+                        // Webpack 3:   .isInitial()
+                        // Webpack 1/2: .initial
+                        return files.concat({
+                            path: path,
+                            chunk: chunk,
+                            name: name,
+                            isInitial: chunk.isOnlyInitial ? chunk.isOnlyInitial() : (chunk.isInitial ? chunk.isInitial() : chunk.initial),
+                            isChunk: true,
+                            isAsset: false,
+                            isModuleAsset: false
+                        });
+                    }.bind(this), files);
+            }.bind(this), []);
 
         // module assets don't show up in assetsByChunkName.
         // we're getting them this way;
-        files = stats.assets.reduce(function (files, asset) {
-            const name = moduleAssets[asset.name];
-            if (name) {
+        files = (Array.isArray(stats.assets) ? stats.assets : Array.from(stats.assets || []))
+            .reduce(function (files, asset) {
+                const name = moduleAssets[asset.name];
+                if (name) {
+                    return files.concat({
+                        path: asset.name,
+                        name: name,
+                        isInitial: false,
+                        isChunk: false,
+                        isAsset: true,
+                        isModuleAsset: true
+                    });
+                }
+
+                const isEntryAsset = (asset.chunks || asset.chunkNames).length > 0;
+                if (isEntryAsset) {
+                    // inject related
+                    if (asset.info && asset.info.related) {
+                        for (const key in asset.info.related) {
+                            const name = asset.info.related[key];
+                            files.push({
+                                path: name,
+                                name: name,
+                                isInitial: false,
+                                isChunk: false,
+                                isAsset: false,
+                                isModuleAsset: false
+                            });
+                        }
+                    }
+                    return files;
+                }
+
                 return files.concat({
                     path: asset.name,
-                    name: name,
+                    name: asset.name,
                     isInitial: false,
                     isChunk: false,
                     isAsset: true,
-                    isModuleAsset: true
+                    isModuleAsset: false
                 });
-            }
-
-            const isEntryAsset = asset.chunks.length > 0;
-            if (isEntryAsset) {
-                return files;
-            }
-
-            return files.concat({
-                path: asset.name,
-                name: asset.name,
-                isInitial: false,
-                isChunk: false,
-                isAsset: true,
-                isModuleAsset: false
-            });
-        }, files);
+            }, files);
 
         files = files.filter(function (file) {
             // Don't add hot updates to manifest
@@ -251,20 +274,29 @@ ImportMapPlugin.prototype.apply = function (compiler) {
                 ...manifest
             }
         };
-        const isLastEmit = emitCount === 0;
+        const isLastEmit = (emitCount === 0);
         if (isLastEmit) {
             const output = this.opts.serialize(importMap);
-            compilation.assets[outputName] = {
-                source: function () {
-                    return output;
-                },
-                size: function () {
-                    return output.length;
-                }
-            };
+
+            try {
+                const { RawSource } = compiler.webpack.sources;
+                compilation.emitAsset(
+                    outputName,
+                    new RawSource(output)
+                );
+            } catch (error) {
+                compilation.assets[outputName] = {
+                    source: function () {
+                        return output;
+                    },
+                    size: function () {
+                        return output.length;
+                    }
+                };
+            }
 
             if (this.opts.writeToFileEmit) {
-                fse.outputFileSync(outputFile, output);
+                fs.writeFileSync(outputFile, output);
             }
         }
 
